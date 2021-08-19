@@ -1,0 +1,45 @@
+<resources>
+    <string name="app_name">SFP Prototype Application</string>
+
+    <!-- MainActivity トースト用 -->
+    <string name="bluetooth_is_not_supported">Bluetooth is not supported.</string>
+    <string name="bluetooth_is_not_connected">Not connected to any device</string>
+
+    <string name="light_label">Light</string>
+    <string name="light_speed_label">Speed</string>
+    <string name="vibe_label">Vibration</string>
+
+    <string name="light_value">Light Value</string>
+    <string name="vibe_value">Vibration Value</string>
+
+    <string name="light_type_label">Light Type</string>
+
+    <string name="rb_red">Red</string>
+    <string name="rb_blue">Blue</string>
+    <string name="rb_green">Green</string>
+
+    <string name="selected_light_type">Selected Light Type: </string>
+
+    <string name="send_message">Sending Message: </string>
+    <string name="command">Command: </string>
+    <string name="bluetooth_status">Bluetooth Status: </string>
+
+    <string name="acc_label">Acceleration: </string>
+
+    <string name="send_button_light">Send Light</string>
+    <string name="send_button_vibe">Send Vibe</string>
+    <string name="send_button">Send String</string>
+    <string name="connect_button">Connect</string>
+
+    <!-- device_list メニュー用 -->
+    <string name="title_device_list">Device List</string>
+    <string name="tv_status_label">Status : </string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+
+    <!-- オプションメニューリスト用 -->
+    <string name="menu_list_options_connection">Connection</string>
+
+    <!-- -->
+    <string name="et_initial_text">送信したい文字列を入力</string>
+</resources>
