@@ -8,23 +8,30 @@ import android.hardware.SensorManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
+import android.os.Message
 import android.util.Log
 import android.view.View
 import android.widget.*
+import androidx.core.os.HandlerCompat
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
+import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
+class MainActivity : AppCompatActivity(){
     companion object {
         private const val TAG = "MAIN_ACTIVITY_DEBUG_TAG"
-        private const val TARGET_DEVICE_NAME = "SPECTRE-X13"      // 接続端末に応じて変える
-//        //const const val TARGET_DEVICE_NAME = "RNBT-95E6"      // 接続端末に応じて変える
-////        private val MacAddress = "68:27:19:F3:95:E6"        // RNBT-95E6
-        private val MacAddress = "38:00:25:94:09:39"        // SPECTRE-X13
+
+        // SPECTRE-X13
+//        private const val TARGET_DEVICE_NAME = "SPECTRE-X13"      // 接続端末に応じて変える
+//        private val MacAddress = "38:00:25:94:09:39"
+
+        // RNBT-95E6
+        private const val TARGET_DEVICE_NAME = "RNBT-95E6"      // 接続端末に応じて変える
+        private val MacAddress = "68:27:19:F3:95:E6"
 
         private const val REQUEST_ENABLE_BLUETOOTH = 1
         private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
@@ -116,32 +123,7 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
 //    }
 
     //////////////////////////////////////////////////////
-    // Event
-//    override fun onSensorChanged(event: SensorEvent) {
-////        Log.d("onSensorChanged")
-//
-//        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-//            // Many sensors return 3 values, one for each axis.
-//            val accX = event.values[0]
-//            val accY = event.values[1]
-//            val accZ = event.values[2]
-//
-//            val accStrength = abs(accX) + abs(accY) + abs(accZ)
-//
-//            mLightValue = ((accStrength - 10.5) * 50).roundToInt()
-//            if(mLightValue < 0) mLightValue = 0
-//            if(mLightValue > 100) mLightValue = 100
-//            Log.d(TAG, "light val: $mLightValue")
-//
-//            val accTextView = findViewById<TextView>(R.id.tv_acc)
-//            accTextView.text = "X: %.2f Y: %.2f Z: %.2f Strength: %.2f".format(accX, accY, accZ, accStrength)
-//        }
-//    }
-//
-//    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
-//        // Do something here if sensor accuracy changes.
-//        Log.d(TAG, "onAccuracyChanged")
-//    }
+
 
     //////////////////////////////////////////////////////
     /// Listener
@@ -163,16 +145,43 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
 //                R.id.sendButton->{
 //                    inputString = findViewById<EditText>(R.id.editText).text.toString()
 //                }
-//                R.id.connectButton->{
-//                    sendFlag = false
-//                    BTConnect()
-//                }
+                R.id.bt_connection->{
+                    Log.d(TAG, "bt_connection")
+                    if(!isConnecting)
+                    {
+                        val executorService = Executors.newSingleThreadScheduledExecutor()
+                        executorService.submit(object: Runnable{
+                            override fun run()
+                            {
+                                BTConnect()
+                                updateConnectStatus(isConnecting)
+                                if(!isConnecting)
+                                {
+                                    Toast.makeText(this@MainActivity, getString(R.string.connection_failed), Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        })
+                    }
+                    else
+                    {
+                        Toast.makeText(this@MainActivity, getString(R.string.bluetooth_is_already_connecting), Toast.LENGTH_SHORT).show()
+                    }
+
+                }
             }
 
             if(mBTSocket!=null)
             {
                 Log.d(TAG, "input_string: $inputString")
-                Send(inputString)
+
+                val executeService = Executors.newSingleThreadExecutor()
+                executeService.submit(object: Runnable{
+                    override fun run() {
+                        Log.d(TAG, "send() function service start")
+                        Send(inputString)
+                    }
+                })
+//                Send(inputString)
 
                 Toast.makeText(this@MainActivity, "Send Command: $inputString", Toast.LENGTH_SHORT).show()
             }
@@ -236,7 +245,7 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
     //////////////////////////////////////////////////////
     /// Bluetooth
 
-    private fun BTConnect(): Boolean {
+    private fun BTConnect() {
         Log.d(TAG, "BTConnect")
 
         //BTアダプタのインスタンスを取得
@@ -248,6 +257,7 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
         mBTSocket = try {
             mBTDevice?.createRfcommSocketToServiceRecord(SPP_UUID)
         } catch (e: IOException) {
+            isConnecting = false
             null
         }
         if (mBTSocket != null) {
@@ -261,9 +271,11 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
                 isRunning = false
                 mBTSocket = try {
                     mBTSocket!!.close()
+                    isConnecting = false
                     null
-                } catch (closeException: IOException) {
-                    return false
+                } catch (closeException: IOException){
+                    isConnecting = false
+                    null
                 }
             }
         }
@@ -272,14 +284,14 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
         if (mBTSocket != null) {
             try {
                 mOutputStream = mBTSocket!!.outputStream
+                isConnecting = true
             } catch (e: IOException) { /*ignore*/
                 Log.d(TAG, "IOException in getting outputStream", e)
-                return false
+                isConnecting = false
             }
         }
 
-        return true
-
+        Log.d(TAG, "end of BTConnect(): isConnecting: $isConnecting")
     }
 
     private fun Send(str: String) {
@@ -291,7 +303,33 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
         bytes_ = str.toByteArray()
         try {
             mOutputStream!!.write(bytes_)
-        } catch (e: IOException) {
+
+
+            val executorService = Executors.newSingleThreadExecutor()
+            executorService.submit {
+                Log.d(TAG, "waiting message from remote device")
+
+                mInputStream = mBTSocket!!.inputStream
+                // InputStreamのバッファを格納
+                val buffer = ByteArray(1024)
+
+                // InputStreamの読み込み
+                val bytes: Int? = mInputStream?.read(buffer)
+                //            Log.i(TAG, "bytes=$bytes")
+                // String型に変換
+                val readMsg = bytes?.let { String(buffer, 0, it) }
+                // null以外なら表示
+                if (readMsg != null) {
+                    Log.d(TAG, "readMsg: $readMsg")
+
+                    //                val valueMsg = Message()
+                    //                valueMsg.obj = readMsg
+                    //                mHandler.sendMessage(valueMsg)
+                }
+            }
+
+        }
+        catch (e: IOException) {
             try {
                 mBTSocket!!.close()
             } catch (e1: IOException) { /*ignore*/
@@ -347,13 +385,13 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
         val sendButtonLight = findViewById<Button>(R.id.bt_light)
         val sendButtonVibe = findViewById<Button>(R.id.bt_vibe)
 //        val sendButton = findViewById<Button>(R.id.bt_)
-//        val connectButton = findViewById<Button>(R.id.connectButton)
+        val connectButton = findViewById<Button>(R.id.bt_connection)
 
         val buttonClickListener = ButtonClickListener()
         sendButtonLight.setOnClickListener(buttonClickListener)
         sendButtonVibe.setOnClickListener(buttonClickListener)
 //        sendButton.setOnClickListener(buttonClickListener)
-//        connectButton.setOnClickListener(buttonClickListener)
+        connectButton.setOnClickListener(buttonClickListener)
 
         ////////////////////////////////
         // Bluetooth
@@ -367,12 +405,22 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
             startActivityForResult(enableBluetoothIntent, REQUEST_ENABLE_BLUETOOTH)
         }
 
-        val successConnect = BTConnect()
+//        BTConnect()
+        findViewById<TextView>(R.id.tv_bt_status).text = getString(R.string.bluetooth_connecting)
 
-        updateConnectStatus(successConnect)
+        val executorService = Executors.newSingleThreadScheduledExecutor()
+        executorService.submit(object: Runnable{
+            override fun run()
+            {
+                BTConnect()
+                updateConnectStatus(isConnecting)
+            }
+        })
+
+
 
         // 接続の処理を実装できていないため
-        findViewById<Button>(R.id.bt_connection).isEnabled = false
+//        findViewById<Button>(R.id.bt_connection).isEnabled = false
 
 
         // sensor
@@ -429,13 +477,15 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
         var command = ""
         when(type)
         {
-            "L"->
+            LIGHT_TAG->
             {
-                command = "L,$mlightType,$mLightValue,$mSpeedValue\n"
+//                command = "L,$mlightType,$mLightValue,$mSpeedValue"
+                command = "L,$mlightType,$mLightValue,${mSpeedValue}x"
             }
-            "V"->
+            VIBE_TAG->
             {
-                command = "V,$mVibeValue\n"
+//                command = "V,$mVibeValue\n"
+                command = "V,${mVibeValue}x"
             }
         }
 
@@ -445,13 +495,13 @@ class MainActivity : AppCompatActivity()/*, SensorEventListener*/ {
 
     private fun updateAcc()
     {
-        Log.d(TAG, "updateAcc()")
+//        Log.d(TAG, "updateAcc()")
         super.onResume()
 
         val accArray = mAccAdapter.getValues()
         val accTextView = findViewById<TextView>(R.id.tv_acc)
         val accStrength = abs(accArray[0]) + abs(accArray[1]) + abs(accArray[2])
-        accTextView.text = "X: %.2f Y: %.2f Z: %.2f Strength: %.2f".format(accArray[0], accArray[1], accArray[2], accStrength)
+        accTextView.text = "X: %.2f Y: %.2f Z: %.2f\nStrength: %.2f".format(accArray[0], accArray[1], accArray[2], accStrength)
 
         mLightValue = (accStrength.roundToInt()) * 5
         if(mLightValue < 0) mLightValue = 0

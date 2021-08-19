@@ -128,7 +128,7 @@ class AccAdapter(manager: SensorManager) : SensorEventListener {
             old_y = currentAccelerationValues[1]
             old_z = currentAccelerationValues[2]
 
-            Log.d(TAG, "current Acc: %.2f, %.2f, %.2f".format(currentAccelerationValues[0], currentAccelerationValues[1], currentAccelerationValues[2]))
+//            Log.d(TAG, "current Acc: %.2f, %.2f, %.2f".format(currentAccelerationValues[0], currentAccelerationValues[1], currentAccelerationValues[2]))
         }
     }
 
